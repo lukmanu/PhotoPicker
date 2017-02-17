@@ -18,6 +18,7 @@ import me.iwf.photopicker.entity.Photo;
 import me.iwf.photopicker.entity.PhotoDirectory;
 import me.iwf.photopicker.event.OnItemCheckListener;
 import me.iwf.photopicker.event.OnPhotoClickListener;
+import me.iwf.photopicker.utils.AndroidLifecycleUtils;
 import me.iwf.photopicker.utils.MediaStoreHelper;
 
 /**
@@ -53,11 +54,8 @@ public class PhotoGridAdapter extends SelectableAdapter<PhotoGridAdapter.PhotoVi
   public PhotoGridAdapter(Context context, RequestManager requestManager,  List<PhotoDirectory> photoDirectories, ArrayList<String> orginalPhotos, int colNum) {
     this(context, requestManager, photoDirectories);
     setColumnNumber(context, colNum);
-    setOriginalPhotos(orginalPhotos);
-  }
-
-  private void setOriginalPhotos(ArrayList<String> originalPhotos){
-    this.originalPhotos = originalPhotos;
+    selectedPhotos = new ArrayList<>();
+    if (orginalPhotos != null) selectedPhotos.addAll(orginalPhotos);
   }
 
   private void setColumnNumber(Context context, int columnNumber) {
@@ -75,8 +73,8 @@ public class PhotoGridAdapter extends SelectableAdapter<PhotoGridAdapter.PhotoVi
 
 
   @Override public PhotoViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-    View itemView = inflater.inflate(R.layout.__picker_item_photo, parent, false);
-    PhotoViewHolder holder = new PhotoViewHolder(itemView);
+    final View itemView = inflater.inflate(R.layout.__picker_item_photo, parent, false);
+    final PhotoViewHolder holder = new PhotoViewHolder(itemView);
     if (viewType == ITEM_TYPE_CAMERA) {
       holder.vSelected.setVisibility(View.GONE);
       holder.ivPhoto.setScaleType(ImageView.ScaleType.CENTER);
@@ -106,15 +104,19 @@ public class PhotoGridAdapter extends SelectableAdapter<PhotoGridAdapter.PhotoVi
         photo = photos.get(position);
       }
 
-      glide
-          .load(new File(photo.getPath()))
-          .centerCrop()
-          .dontAnimate()
-          .thumbnail(0.5f)
-          .override(imageSize, imageSize)
-          .placeholder(R.drawable.__picker_ic_photo_black_48dp)
-          .error(R.drawable.__picker_ic_broken_image_black_48dp)
-          .into(holder.ivPhoto);
+      boolean canLoadImage = AndroidLifecycleUtils.canLoadImage(holder.ivPhoto.getContext());
+
+      if (canLoadImage) {
+        glide
+                .load(new File(photo.getPath()))
+                .centerCrop()
+                .dontAnimate()
+                .thumbnail(0.5f)
+                .override(imageSize, imageSize)
+                .placeholder(R.drawable.__picker_ic_photo_black_48dp)
+                .error(R.drawable.__picker_ic_broken_image_black_48dp)
+                .into(holder.ivPhoto);
+      }
 
       final boolean isChecked = isSelected(photo);
 
@@ -139,8 +141,8 @@ public class PhotoGridAdapter extends SelectableAdapter<PhotoGridAdapter.PhotoVi
           boolean isEnable = true;
 
           if (onItemCheckListener != null) {
-            isEnable = onItemCheckListener.OnItemCheck(pos, photo, isChecked,
-                getSelectedPhotos().size());
+            isEnable = onItemCheckListener.onItemCheck(pos, photo,
+                    getSelectedPhotos().size() + (isSelected(photo) ? -1: 1));
           }
           if (isEnable) {
             toggleSelection(photo);
@@ -195,8 +197,8 @@ public class PhotoGridAdapter extends SelectableAdapter<PhotoGridAdapter.PhotoVi
   public ArrayList<String> getSelectedPhotoPaths() {
     ArrayList<String> selectedPhotoPaths = new ArrayList<>(getSelectedItemCount());
 
-    for (Photo photo : selectedPhotos) {
-      selectedPhotoPaths.add(photo.getPath());
+    for (String photo : selectedPhotos) {
+      selectedPhotoPaths.add(photo);
     }
 
     return selectedPhotoPaths;

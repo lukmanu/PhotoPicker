@@ -1,9 +1,12 @@
 package me.iwf.photopicker.fragment;
 
-import android.content.Context;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.ListPopupWindow;
 import android.support.v7.widget.OrientationHelper;
@@ -16,11 +19,15 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import me.iwf.photopicker.PhotoPicker;
 import me.iwf.photopicker.PhotoPickerActivity;
 import me.iwf.photopicker.R;
 import me.iwf.photopicker.adapter.PhotoGridAdapter;
@@ -28,8 +35,11 @@ import me.iwf.photopicker.adapter.PopupDirectoryListAdapter;
 import me.iwf.photopicker.entity.Photo;
 import me.iwf.photopicker.entity.PhotoDirectory;
 import me.iwf.photopicker.event.OnPhotoClickListener;
+import me.iwf.photopicker.utils.AndroidLifecycleUtils;
 import me.iwf.photopicker.utils.ImageCaptureManager;
 import me.iwf.photopicker.utils.MediaStoreHelper;
+import me.iwf.photopicker.utils.PermissionsConstant;
+import me.iwf.photopicker.utils.PermissionsUtils;
 
 import static android.app.Activity.RESULT_OK;
 import static me.iwf.photopicker.PhotoPicker.DEFAULT_COLUMN_NUMBER;
@@ -62,7 +72,6 @@ public class PhotoPickerFragment extends Fragment {
   private final static String EXTRA_ORIGIN = "origin";
   private ListPopupWindow listPopupWindow;
   private RequestManager mGlideRequestManager;
-  private Context mContext;
 
   public static PhotoPickerFragment newInstance(boolean showCamera, boolean showGif,
       boolean previewEnable, int column, int maxCount, ArrayList<String> originalPhotos) {
@@ -76,11 +85,6 @@ public class PhotoPickerFragment extends Fragment {
     PhotoPickerFragment fragment = new PhotoPickerFragment();
     fragment.setArguments(args);
     return fragment;
-  }
-
-  @Override public void onAttach(Context context) {
-    super.onAttach(context);
-    mContext = context;
   }
 
   @Override public void onCreate(Bundle savedInstanceState) {
@@ -97,7 +101,7 @@ public class PhotoPickerFragment extends Fragment {
     boolean showCamera = getArguments().getBoolean(EXTRA_CAMERA, true);
     boolean previewEnable = getArguments().getBoolean(EXTRA_PREVIEW_ENABLED, true);
 
-    photoGridAdapter = new PhotoGridAdapter(mContext, mGlideRequestManager, directories, originalPhotos, column);
+    photoGridAdapter = new PhotoGridAdapter(getActivity(), mGlideRequestManager, directories, originalPhotos, column);
     photoGridAdapter.setShowCamera(showCamera);
     photoGridAdapter.setPreviewEnable(previewEnable);
 
@@ -142,7 +146,6 @@ public class PhotoPickerFragment extends Fragment {
     listPopupWindow.setAdapter(listAdapter);
     listPopupWindow.setModal(true);
     listPopupWindow.setDropDownGravity(Gravity.BOTTOM);
-    //listPopupWindow.setAnimationStyle(R.style.Animation_AppCompat_DropDownUp);
 
     listPopupWindow.setOnItemClickListener(new AdapterView.OnItemClickListener() {
       @Override public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -175,12 +178,9 @@ public class PhotoPickerFragment extends Fragment {
 
     photoGridAdapter.setOnCameraClickListener(new OnClickListener() {
       @Override public void onClick(View view) {
-        try {
-          Intent intent = captureManager.dispatchTakePictureIntent();
-          startActivityForResult(intent, ImageCaptureManager.REQUEST_TAKE_PHOTO);
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
+        if (!PermissionsUtils.checkCameraPermission(PhotoPickerFragment.this)) return;
+        if (!PermissionsUtils.checkWriteStoragePermission(PhotoPickerFragment.this)) return;
+        openCamera();
       }
     });
 
@@ -204,12 +204,12 @@ public class PhotoPickerFragment extends Fragment {
         if (Math.abs(dy) > SCROLL_THRESHOLD) {
           mGlideRequestManager.pauseRequests();
         } else {
-          mGlideRequestManager.resumeRequests();
+          resumeRequestsIfNotDestroyed();
         }
       }
       @Override public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
         if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-          mGlideRequestManager.resumeRequests();
+          resumeRequestsIfNotDestroyed();
         }
       }
     });
@@ -217,9 +217,26 @@ public class PhotoPickerFragment extends Fragment {
     return rootView;
   }
 
+  private void openCamera() {
+    try {
+      Intent intent = captureManager.dispatchTakePictureIntent();
+      startActivityForResult(intent, ImageCaptureManager.REQUEST_TAKE_PHOTO);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ActivityNotFoundException e) {
+      // TODO No Activity Found to handle Intent
+      e.printStackTrace();
+    }
+  }
 
   @Override public void onActivityResult(int requestCode, int resultCode, Intent data) {
     if (requestCode == ImageCaptureManager.REQUEST_TAKE_PHOTO && resultCode == RESULT_OK) {
+
+      if (captureManager == null) {
+        FragmentActivity activity = getActivity();
+        captureManager = new ImageCaptureManager(activity);
+      }
+
       captureManager.galleryAddPic();
       if (directories.size() > 0) {
         String path = captureManager.getCurrentPhotoPath();
@@ -231,6 +248,21 @@ public class PhotoPickerFragment extends Fragment {
     }
   }
 
+  @Override
+  public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    if (grantResults.length > 0
+            && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+      switch (requestCode) {
+        case PermissionsConstant.REQUEST_CAMERA:
+        case PermissionsConstant.REQUEST_EXTERNAL_WRITE:
+          if (PermissionsUtils.checkWriteStoragePermission(this) &&
+                  PermissionsUtils.checkCameraPermission(this)) {
+            openCamera();
+          }
+          break;
+      }
+    }
+  }
 
   public PhotoGridAdapter getPhotoGridAdapter() {
     return photoGridAdapter;
@@ -275,5 +307,13 @@ public class PhotoPickerFragment extends Fragment {
     }
     directories.clear();
     directories = null;
+  }
+
+  private void resumeRequestsIfNotDestroyed() {
+    if (!AndroidLifecycleUtils.canLoadImage(this)) {
+      return;
+    }
+
+    mGlideRequestManager.resumeRequests();
   }
 }

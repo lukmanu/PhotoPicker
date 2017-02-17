@@ -9,10 +9,9 @@
 ---
 
 # Example
-![](http://ww2.sinaimg.cn/large/5e9a81dbgw1etra5iu80lj206z0cet8r.jpg)
 ![](http://ww2.sinaimg.cn/large/5e9a81dbgw1etra61rnr9j206z0ce3yu.jpg)
-![](http://ww4.sinaimg.cn/large/5e9a81dbgw1etra6efl1hj206z0cewet.jpg)
 ![](http://ww3.sinaimg.cn/large/5e9a81dbgw1etra6q2edzj206z0cedgg.jpg)
+![](http://ogkb67oc8.bkt.clouddn.com/F028B942CF5978D900B15033941478B7.jpg?imageView2/2/w/250/)
 
 <p style="float:left;">
  <a href="https://play.google.com/store/apps/details?id=me.iwf.PhotoPickerDemo&utm_source=global_co&utm_medium=prtnr&utm_content=Mar2515&utm_campaign=PartBadge&pcampaignid=MKT-AC-global-none-all-co-pr-py-PartBadges-Oct1515-1">
@@ -28,7 +27,7 @@
 
 ```groovy
 dependencies {
-    compile 'me.iwf.photopicker:PhotoPicker:0.8.5@aar'
+    compile 'me.iwf.photopicker:PhotoPicker:0.9.5@aar'
     
     compile 'com.android.support:appcompat-v7:23.4.0'
     compile 'com.android.support:recyclerview-v7:23.4.0'
@@ -37,17 +36,13 @@ dependencies {
     compile 'com.github.bumptech.glide:glide:3.7.0'
 }
 ```
+* ```appcompat-v7```version >= 23.0.0
 
 ### eclipse
 [![GO HOME](http://ww4.sinaimg.cn/large/5e9a81dbgw1eu90m08v86j20dw09a3yu.jpg)
 
 ### Pick Photo
 ```java
-// PhotoPickerIntent intent = new PhotoPickerIntent(MainActivity.this);
-// intent.setPhotoCount(9);
-// intent.setShowCamera(true);
-// intent.setShowGif(true);
-// startActivityForResult(intent, REQUEST_CODE);
 PhotoPicker.builder()
     .setPhotoCount(9)
     .setShowCamera(true)
@@ -59,13 +54,7 @@ PhotoPicker.builder()
 ### Preview Photo
 
 ```java
-// ArrayList<String> photoPaths = ...;
-
-// Intent intent = new Intent(mContext, PhotoPagerActivity.class);
-// intent.putExtra(PhotoPagerActivity.EXTRA_CURRENT_ITEM, position);
-// intent.putExtra(PhotoPagerActivity.EXTRA_PHOTOS, photoPaths);
-// intent.putExtra(PhotoPagerActivity.EXTRA_SHOW_DELETE, false); // default is true
-// startActivityForResult(intent, REQUEST_CODE);
+ArrayList<String> photoPaths = ...;
 
 PhotoPreview.builder()
     .setPhotos(selectedPhotos)
@@ -91,8 +80,9 @@ PhotoPreview.builder()
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     >
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.CAMERA" />
   <application
     ...
     >
@@ -170,5 +160,4 @@ PhotoPreview.builder()
     limitations under the License.
 
 
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/donglua/photopicker/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
